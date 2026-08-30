@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Smart Waste Management</title>
+
+    <link rel="stylesheet" href="/style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+
+<body>
+
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
+<header class="header">
+
+    <div>
+
+        <h1>♻️ Smart Waste Management</h1>
+
+        <p>
+            AI-Powered Smart Dustbin Monitoring System
+        </p>
+
+    </div>
+
+
+    <div class="live-status">
+
+        <span class="live-dot"></span>
+
+        LIVE
+
+    </div>
+
+</header>
+
+
+
+<main class="container">
+
+
+    <!-- =====================================================
+         SUMMARY CARDS
+    ====================================================== -->
+
+    <section class="summary-grid">
+
+
+        <div class="summary-card">
+
+            <p>Total Dustbins</p>
+
+            <h2 id="totalBins">0</h2>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p>Full</p>
+
+            <h2 id="fullBins">0</h2>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p>Medium</p>
+
+            <h2 id="mediumBins">0</h2>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <p>Empty</p>
+
+            <h2 id="emptyBins">0</h2>
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- =====================================================
+         SENSOR CARDS
+    ====================================================== -->
+
+    <section class="sensor-grid">
+
+
+        <div class="sensor-card">
+
+            <div class="sensor-icon">
+                🌡️
+            </div>
+
+            <div>
+
+                <p>Temperature</p>
+
+                <h2 id="temperatureValue">
+                    -- °C
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="sensor-card">
+
+            <div class="sensor-icon">
+                💧
+            </div>
+
+            <div>
+
+                <p>Humidity</p>
+
+                <h2 id="humidityValue">
+                    -- %
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="sensor-card">
+
+            <div class="sensor-icon">
+                🧪
+            </div>
+
+            <div>
+
+                <p>Gas Level</p>
+
+                <h2 id="gasValue">
+                    --
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="sensor-card">
+
+            <div class="sensor-icon">
+                👃
+            </div>
+
+            <div>
+
+                <p>Odor Status</p>
+
+                <h2 id="odorValue">
+                    --
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="sensor-card">
+
+            <div class="sensor-icon">
+                🗑️
+            </div>
+
+            <div>
+
+                <p>Fill Level</p>
+
+                <h2 id="fillValue">
+                    -- %
+                </h2>
+
+            </div>
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- =====================================================
+         ALERTS
+    ====================================================== -->
+
+    <section class="alerts-section">
+
+
+        <div class="section-header">
+
+            <div>
+
+                <h2>🚨 Alerts</h2>
+
+                <p>
+                    Important dustbin notifications
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div id="alertsContainer">
+
+            <div class="no-alert">
+
+                ✅ No active alerts
+
+            </div>
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- =====================================================
+         DUSTBIN MONITORING
+    ====================================================== -->
+
+    <section class="monitor-section">
+
+
+        <div class="section-header">
+
+            <div>
+
+                <h2>Dustbin Monitoring</h2>
+
+                <p>
+                    Real-time sensor readings
+                </p>
+
+            </div>
+
+
+            <div class="update-info">
+
+                Updates every 5 seconds
+
+            </div>
+
+        </div>
+
+
+
+        <div class="table-container">
+
+
+            <table>
+
+
+                <thead>
+
+                    <tr>
+
+                        <th>Dustbin ID</th>
+
+                        <th>Location</th>
+
+                        <th>Distance</th>
+
+                        <th>Fill Level</th>
+
+                        <th>Temperature</th>
+
+                        <th>Humidity</th>
+
+                        <th>Gas</th>
+
+                        <th>Odor</th>
+
+                        <th>Status</th>
+
+                        <th>Last Updated</th>
+
+                    </tr>
+
+                </thead>
+
+
+
+                <tbody id="dustbinTable">
+
+                    <tr>
+
+                        <td colspan="10">
+
+                            Loading dustbin data...
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+
+            </table>
+
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- =====================================================
+         CHART
+    ====================================================== -->
+
+    <section class="chart-section">
+
+
+        <div class="section-header">
+
+            <div>
+
+                <h2>
+                    📊 Fill Level History
+                </h2>
+
+                <p>
+                    Historical waste level
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="chart-container">
+
+            <canvas id="fillChart"></canvas>
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- =====================================================
+         SYSTEM STATUS
+    ====================================================== -->
+
+    <section class="system-status">
+
+
+        <div>
+
+            <strong>
+                System Status
+            </strong>
+
+
+            <span class="online">
+
+                ● Online
+
+            </span>
+
+        </div>
+
+
+        <div class="pipeline">
+
+            ESP32
+            →
+            Wi-Fi
+            →
+            Flask
+            →
+            SQLite
+            →
+            Dashboard
+
+        </div>
+
+
+    </section>
+
+
+</main>
+
+
+
+<script src="/script.js"></script>
+
+
+</body>
+
+</html>
