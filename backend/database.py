@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
@@ -22,17 +21,31 @@ def create_database():
     connection = get_postgres_connection()
     cursor = connection.cursor()
 
+    # Dustbin master table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS dustbins (
             id SERIAL PRIMARY KEY,
             dustbin_id VARCHAR(100) UNIQUE NOT NULL,
             location VARCHAR(255),
-            fill_level FLOAT DEFAULT 0,
-            temperature FLOAT DEFAULT 0,
-            odor FLOAT DEFAULT 0,
-            status VARCHAR(50) DEFAULT 'Normal',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            latitude FLOAT,
+            longitude FLOAT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Sensor readings table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS dustbin_readings (
+            id SERIAL PRIMARY KEY,
+            dustbin_id VARCHAR(100) NOT NULL,
+            distance FLOAT,
+            fill_level FLOAT,
+            status VARCHAR(50),
+            temperature FLOAT,
+            humidity FLOAT,
+            gas_raw FLOAT,
+            odor_status VARCHAR(50),
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -41,7 +54,7 @@ def create_database():
     cursor.close()
     connection.close()
 
-    print("Cloud PostgreSQL database initialized successfully!")
+    print("PostgreSQL database initialized successfully!")
 
 
 def get_all_dustbins():
@@ -52,17 +65,41 @@ def get_all_dustbins():
 
     cursor.execute("""
         SELECT
-            id,
-            dustbin_id,
-            location,
-            fill_level,
-            temperature,
-            odor,
-            status,
-            created_at,
-            updated_at
-        FROM dustbins
-        ORDER BY id ASC
+            d.id,
+            d.dustbin_id,
+            d.location,
+            d.latitude,
+            d.longitude,
+            d.created_at,
+
+            r.distance,
+            r.fill_level,
+            r.status,
+            r.temperature,
+            r.humidity,
+            r.gas_raw,
+            r.odor_status,
+            r.timestamp
+
+        FROM dustbins d
+
+        LEFT JOIN LATERAL (
+            SELECT
+                distance,
+                fill_level,
+                status,
+                temperature,
+                humidity,
+                gas_raw,
+                odor_status,
+                timestamp
+            FROM dustbin_readings r
+            WHERE r.dustbin_id = d.dustbin_id
+            ORDER BY r.timestamp DESC
+            LIMIT 1
+        ) r ON TRUE
+
+        ORDER BY d.id ASC
     """)
 
     rows = cursor.fetchall()
@@ -73,13 +110,14 @@ def get_all_dustbins():
     result = []
 
     for row in rows:
+
         row = dict(row)
 
         if row.get("created_at"):
             row["created_at"] = row["created_at"].isoformat()
 
-        if row.get("updated_at"):
-            row["updated_at"] = row["updated_at"].isoformat()
+        if row.get("timestamp"):
+            row["timestamp"] = row["timestamp"].isoformat()
 
         result.append(row)
 
@@ -94,30 +132,24 @@ def add_dustbin(data):
 
     dustbin_id = data.get("dustbin_id")
     location = data.get("location", "")
-    fill_level = data.get("fill_level", 0)
-    temperature = data.get("temperature", 0)
-    odor = data.get("odor", 0)
-    status = data.get("status", "Normal")
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
 
     cursor.execute("""
         INSERT INTO dustbins
         (
             dustbin_id,
             location,
-            fill_level,
-            temperature,
-            odor,
-            status
+            latitude,
+            longitude
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s)
         RETURNING *
     """, (
         dustbin_id,
         location,
-        fill_level,
-        temperature,
-        odor,
-        status
+        latitude,
+        longitude
     ))
 
     row = cursor.fetchone()
@@ -130,33 +162,35 @@ def add_dustbin(data):
     return dict(row)
 
 
-def update_dustbin(dustbin_id, data):
+def add_reading(data):
 
     connection = get_postgres_connection()
 
     cursor = connection.cursor(cursor_factory=RealDictCursor)
 
-    fill_level = data.get("fill_level")
-    temperature = data.get("temperature")
-    odor = data.get("odor")
-    status = data.get("status")
-
     cursor.execute("""
-        UPDATE dustbins
-        SET
-            fill_level = COALESCE(%s, fill_level),
-            temperature = COALESCE(%s, temperature),
-            odor = COALESCE(%s, odor),
-            status = COALESCE(%s, status),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s
+        INSERT INTO dustbin_readings
+        (
+            dustbin_id,
+            distance,
+            fill_level,
+            status,
+            temperature,
+            humidity,
+            gas_raw,
+            odor_status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING *
     """, (
-        fill_level,
-        temperature,
-        odor,
-        status,
-        dustbin_id
+        data.get("dustbin_id"),
+        data.get("distance"),
+        data.get("fill_level"),
+        data.get("status"),
+        data.get("temperature"),
+        data.get("humidity"),
+        data.get("gas_raw"),
+        data.get("odor_status")
     ))
 
     row = cursor.fetchone()
@@ -165,8 +199,5 @@ def update_dustbin(dustbin_id, data):
 
     cursor.close()
     connection.close()
-
-    if row is None:
-        raise Exception("Dustbin not found")
 
     return dict(row)

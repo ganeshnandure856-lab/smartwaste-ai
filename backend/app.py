@@ -1,14 +1,19 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
 from backend.database import (
     create_database,
     get_all_dustbins,
     add_dustbin,
-    update_dustbin
+    add_reading
 )
 
 import os
+
+
+# ==========================================
+# FLASK APP
+# ==========================================
 
 app = Flask(
     __name__,
@@ -44,6 +49,7 @@ def dashboard():
 
 @app.route("/api/health")
 def health():
+
     return jsonify({
         "status": "healthy",
         "message": "Smart Waste Management System API is running"
@@ -56,7 +62,9 @@ def health():
 
 @app.route("/api/dustbin", methods=["GET"])
 def get_dustbins():
+
     try:
+
         dustbins = get_all_dustbins()
 
         return jsonify({
@@ -66,6 +74,7 @@ def get_dustbins():
         })
 
     except Exception as e:
+
         return jsonify({
             "success": False,
             "error": str(e)
@@ -79,10 +88,21 @@ def get_dustbins():
 @app.route("/api/dustbin", methods=["POST"])
 def create_dustbin():
 
-    from flask import request
-
     try:
+
         data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "Request body is empty"
+            }), 400
+
+        if not data.get("dustbin_id"):
+            return jsonify({
+                "success": False,
+                "error": "dustbin_id is required"
+            }), 400
 
         result = add_dustbin(data)
 
@@ -101,24 +121,35 @@ def create_dustbin():
 
 
 # ==========================================
-# UPDATE DUSTBIN
+# ADD SENSOR READING
 # ==========================================
 
-@app.route("/api/dustbin/<int:dustbin_id>", methods=["PUT"])
-def edit_dustbin(dustbin_id):
-
-    from flask import request
+@app.route("/api/reading", methods=["POST"])
+def create_reading():
 
     try:
+
         data = request.get_json()
 
-        result = update_dustbin(dustbin_id, data)
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "Request body is empty"
+            }), 400
+
+        if not data.get("dustbin_id"):
+            return jsonify({
+                "success": False,
+                "error": "dustbin_id is required"
+            }), 400
+
+        result = add_reading(data)
 
         return jsonify({
             "success": True,
-            "message": "Dustbin updated successfully",
+            "message": "Sensor reading added successfully",
             "data": result
-        })
+        }), 201
 
     except Exception as e:
 
@@ -147,6 +178,9 @@ if __name__ == "__main__":
     print("")
     print("API:")
     print("http://127.0.0.1:5000/api/dustbin")
+    print("")
+    print("Reading API:")
+    print("http://127.0.0.1:5000/api/reading")
     print("")
     print("Health:")
     print("http://127.0.0.1:5000/api/health")
