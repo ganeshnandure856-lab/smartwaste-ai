@@ -1,100 +1,80 @@
-import os
 import joblib
 import pandas as pd
-import xgboost as xgb
 
 
-# Project root directory
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
-)
+# --------------------------------
+# 1. File paths
+# --------------------------------
+
+MODEL_PATH = "models/overflow_model.pkl"
+FEATURES_PATH = "models/feature_columns.pkl"
 
 
-MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "smartwaste_xgb_model.json"
-)
+# --------------------------------
+# 2. Load trained model
+# --------------------------------
 
-THRESHOLD_PATH = os.path.join(
-    BASE_DIR,
-    "smartwaste_threshold.pkl"
-)
-
-FEATURES_PATH = os.path.join(
-    BASE_DIR,
-    "smartwaste_features.pkl"
-)
+model = joblib.load(MODEL_PATH)
+features = joblib.load(FEATURES_PATH)
 
 
-# Load XGBoost model
-model = xgb.XGBClassifier()
+# --------------------------------
+# 3. Sample sensor data
+# --------------------------------
+# Simulating a dustbin with high fill level
 
-model.load_model(MODEL_PATH)
-
-
-# Load threshold
-threshold = joblib.load(
-    THRESHOLD_PATH
-)
-
-
-# Load feature list
-features = joblib.load(
-    FEATURES_PATH
-)
-
-
-def predict_overflow_risk(data):
-
-    df = pd.DataFrame([data])
-
-    # Ensure correct feature order
-    df = df[features]
-
-    # Get probability of overflow
-    probability = model.predict_proba(df)[0][1]
-
-    # Apply selected threshold
-    prediction = int(
-        probability >= threshold
-    )
-
-    return {
-        "overflow_risk": prediction,
-        "risk_probability": float(probability)
-    }
+sample_data = {
+    "distance": 5.0,
+    "fill_level": 95.0,
+    "hour": 14,
+    "day_of_week": 5,
+    "previous_fill_level": 85.0,
+    "fill_change": 10.0,
+    "time_difference_minutes": 10.0,
+    "fill_rate": 1.0,
+    "fill_rate_rolling_mean": 0.9,
+    "previous_distance": 15.0,
+    "distance_change": -10.0
+}
 
 
-if __name__ == "__main__":
+# --------------------------------
+# 4. Convert data to DataFrame
+# --------------------------------
 
-    sample_data = {
-        "fill_level": 78,
-        "waste_generation_rate": 32,
-        "temperature": 29,
-        "humidity": 65,
-        "rainfall_mm": 0,
-        "wet_waste_ratio": 0.4,
-        "odor_level": 3,
-        "capacity_liters": 660,
-        "population_density": 12000,
-        "traffic_level": 3,
-        "road_condition": 4,
-        "hour": 15,
-        "day_of_week": 2
-    }
+input_data = pd.DataFrame([sample_data])
 
-    result = predict_overflow_risk(
-        sample_data
-    )
+# Maintain the same feature order used during training
+input_data = input_data[features]
 
-    print("\n===== SMARTWASTE PREDICTION =====")
+# Handle missing values
+input_data = input_data.fillna(0)
 
-    print(
-        "Overflow Risk:",
-        result["overflow_risk"]
-    )
 
-    print(
-        "Risk Probability:",
-        result["risk_probability"]
-    )
+# --------------------------------
+# 5. Make prediction
+# --------------------------------
+
+prediction = model.predict(input_data)[0]
+
+probability = model.predict_proba(input_data)[0][1]
+
+
+# --------------------------------
+# 6. Display result
+# --------------------------------
+
+print("\n===== SMART WASTE PREDICTION =====")
+
+print("Fill Level:", sample_data["fill_level"], "%")
+
+if prediction == 1:
+    print("Overflow Risk: YES")
+else:
+    print("Overflow Risk: NO")
+
+print("Risk Probability:", round(probability, 4))
+
+print("Risk Percentage:", round(probability * 100, 2), "%")
+
+print("==================================")
