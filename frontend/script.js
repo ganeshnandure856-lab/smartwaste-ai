@@ -1,6 +1,5 @@
 // ============================================
-// SMART WASTE MANAGEMENT SYSTEM
-// LIVE DASHBOARD SCRIPT
+// SMART WASTE MANAGEMENT DASHBOARD
 // ============================================
 
 let dustbins = [];
@@ -9,7 +8,7 @@ let fillChart = null;
 
 
 // ============================================
-// INITIALIZE DASHBOARD
+// PAGE INITIALIZATION
 // ============================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -17,13 +16,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadDustbins();
 
-    // Refresh every 5 seconds
+    // Refresh dashboard every 5 seconds
     setInterval(loadDustbins, 5000);
 });
 
 
 // ============================================
-// LOAD DUSTBINS FROM API
+// LOAD DUSTBIN DATA
 // ============================================
 
 async function loadDustbins() {
@@ -31,32 +30,28 @@ async function loadDustbins() {
         const response = await fetch("/api/dustbin");
 
         if (!response.ok) {
-            throw new Error("API request failed");
+            throw new Error("Failed to load dustbins");
         }
 
         const result = await response.json();
 
-        if (!result.success) {
-            throw new Error(
-                result.error || "Unable to load dustbins"
-            );
-        }
-
-        dustbins = result.data || [];
+        dustbins = Array.isArray(result)
+            ? result
+            : result.dustbins || result.data || [];
 
         console.log("Dustbins:", dustbins);
 
         updateDashboard();
 
     } catch (error) {
-        console.error("Dashboard error:", error);
-        showSystemError();
+        console.error("Loading dustbins error:", error);
+        showSystemError("Unable to load dustbin data");
     }
 }
 
 
 // ============================================
-// UPDATE DASHBOARD
+// UPDATE COMPLETE DASHBOARD
 // ============================================
 
 function updateDashboard() {
@@ -65,12 +60,12 @@ function updateDashboard() {
         return;
     }
 
-    // Select first bin
+    // Select first bin by default
     if (!selectedBinId) {
         selectedBinId = dustbins[0].dustbin_id;
     }
 
-    // Check selected bin exists
+    // Check whether selected bin still exists
     const selectedExists = dustbins.some(
         bin => bin.dustbin_id === selectedBinId
     );
@@ -82,6 +77,7 @@ function updateDashboard() {
     updateSummaryCards();
     updateDustbinSelector();
     updateSensorCards();
+    updateAIRisk();
     updateAlerts();
     updateDustbinTable();
     updateChart();
@@ -93,27 +89,72 @@ function updateDashboard() {
 // ============================================
 
 function updateSummaryCards() {
-    let total = dustbins.length;
-    let full = 0;
-    let medium = 0;
-    let empty = 0;
+    const totalBins = dustbins.length;
+
+    let fullBins = 0;
+    let mediumBins = 0;
+    let emptyBins = 0;
 
     dustbins.forEach(bin => {
-        const fill = Number(bin.fill_level || 0);
+        const fillLevel = Number(bin.fill_level || 0);
 
-        if (fill >= 90) {
-            full++;
-        } else if (fill >= 30) {
-            medium++;
+        if (fillLevel >= 90) {
+            fullBins++;
+        } else if (fillLevel >= 30) {
+            mediumBins++;
         } else {
-            empty++;
+            emptyBins++;
         }
     });
 
+    updateSummary(
+        totalBins,
+        fullBins,
+        mediumBins,
+        emptyBins
+    );
+}
+
+
+function updateSummary(total, full, medium, empty) {
     updateElement("totalBins", total);
     updateElement("fullBins", full);
     updateElement("mediumBins", medium);
     updateElement("emptyBins", empty);
+}
+
+
+// ============================================
+// DUSTBIN SELECTOR
+// ============================================
+
+function updateDustbinSelector() {
+    const selector = document.getElementById("dustbinSelector");
+
+    if (!selector) {
+        return;
+    }
+
+    selector.innerHTML = "";
+
+    dustbins.forEach(bin => {
+        const option = document.createElement("option");
+
+        option.value = bin.dustbin_id;
+        option.textContent =
+            `${bin.dustbin_id} - ${bin.location || "Unknown Location"}`;
+
+        if (bin.dustbin_id === selectedBinId) {
+            option.selected = true;
+        }
+
+        selector.appendChild(option);
+    });
+
+    selector.onchange = function () {
+        selectedBinId = this.value;
+        updateDashboard();
+    };
 }
 
 
@@ -126,74 +167,161 @@ function updateSensorCards() {
         item => item.dustbin_id === selectedBinId
     );
 
-    if (!bin) return;
+    if (!bin) {
+        return;
+    }
+
+    const fillLevel = Number(bin.fill_level || 0);
+    const temperature = Number(bin.temperature || 0);
+    const humidity = Number(bin.humidity || 0);
+    const gasValue = Number(
+        bin.gas_value || bin.gas || bin.mq_value || 0
+    );
+    const distance = Number(bin.distance || 0);
+
+    updateElement(
+        "fillValue",
+        formatNumber(fillLevel) + "%"
+    );
 
     updateElement(
         "temperatureValue",
-        formatNumber(bin.temperature) + " °C"
+        formatNumber(temperature) + "°C"
     );
 
     updateElement(
         "humidityValue",
-        formatNumber(bin.humidity) + " %"
+        formatNumber(humidity) + "%"
     );
 
     updateElement(
         "gasValue",
-        Math.round(Number(bin.gas_raw || 0))
+        formatNumber(gasValue)
     );
 
     updateElement(
         "odorValue",
-        bin.odor_status || "NORMAL"
+        getOdorStatus(gasValue)
     );
 
-    updateElement(
-        "fillValue",
-        formatNumber(bin.fill_level) + " %"
-    );
+    console.log("Selected bin:", bin);
 }
 
 
 // ============================================
-// DUSTBIN SELECTOR
+// ODOR STATUS
 // ============================================
 
-function updateDustbinSelector() {
-    const selector = document.getElementById(
-        "dustbinSelector"
+function getOdorStatus(gasValue) {
+    if (gasValue >= 2500) {
+        return "Danger";
+    }
+
+    if (gasValue >= 1500) {
+        return "Warning";
+    }
+
+    return "Normal";
+}
+
+
+// ============================================
+// AI OVERFLOW PREDICTION
+// ============================================
+
+async function updateAIRisk() {
+    const bin = dustbins.find(
+        item => item.dustbin_id === selectedBinId
     );
 
-    if (!selector) return;
+    if (!bin) {
+        return;
+    }
 
-    const currentValue = selectedBinId;
+    const fillLevel = Number(bin.fill_level || 0);
+    const distance = Number(bin.distance || 0);
 
-    selector.innerHTML = "";
+    const requestData = {
+        distance: distance,
+        fill_level: fillLevel,
 
-    dustbins.forEach(bin => {
-        const option = document.createElement("option");
+        hour: new Date().getHours(),
+        day_of_week: new Date().getDay(),
 
-        option.value = bin.dustbin_id;
+        previous_fill_level: fillLevel,
+        fill_change: 0,
 
-        option.textContent =
-            `${bin.dustbin_id} - ${
-                bin.location || "Unknown Location"
-            }`;
+        time_difference_minutes: 10,
 
-        selector.appendChild(option);
-    });
+        fill_rate: 0,
+        fill_rate_rolling_mean: 0,
 
-    selector.value = currentValue;
-
-    selector.onchange = function () {
-        selectedBinId = this.value;
-        updateDashboard();
+        previous_distance: distance,
+        distance_change: 0
     };
+
+    try {
+        const response = await fetch("/api/predict", {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            throw new Error("Prediction API failed");
+        }
+
+        const result = await response.json();
+
+        console.log("AI Prediction:", result);
+
+        if (!result.success) {
+            throw new Error(
+                result.error || "Prediction failed"
+            );
+        }
+
+        const percentage = Number(
+            result.risk_percentage || 0
+        );
+
+        const riskStatus =
+            result.overflow_risk === "YES"
+                ? "🚨 Overflow Risk Detected"
+                : "✅ Low Overflow Risk";
+
+        updateElement(
+            "aiRiskPercentage",
+            percentage.toFixed(1) + "%"
+        );
+
+        updateElement(
+            "aiRiskStatus",
+            riskStatus
+        );
+
+    } catch (error) {
+        console.error("AI prediction error:", error);
+
+        updateElement(
+            "aiRiskStatus",
+            "⚠️ Prediction unavailable"
+        );
+
+        updateElement(
+            "aiRiskPercentage",
+            "--%"
+        );
+    }
 }
 
 
 // ============================================
-// AUTOMATIC ALERTS
+// ALERTS
 // ============================================
 
 function updateAlerts() {
@@ -201,117 +329,65 @@ function updateAlerts() {
         "alertsContainer"
     );
 
-    if (!container) return;
+    if (!container) {
+        return;
+    }
 
     container.innerHTML = "";
 
-    let alertCount = 0;
+    const bin = dustbins.find(
+        item => item.dustbin_id === selectedBinId
+    );
 
-    dustbins.forEach(bin => {
-        const fill = Number(bin.fill_level || 0);
+    if (!bin) {
+        container.innerHTML =
+            "<p>No dustbin selected.</p>";
 
-        const odor = String(
-            bin.odor_status || "NORMAL"
-        ).toUpperCase();
-
-        // CRITICAL FULL BIN
-        if (fill >= 90) {
-            addAlert(
-                container,
-                "🚨",
-                `${bin.dustbin_id} is FULL`,
-                `Fill level is ${fill.toFixed(
-                    1
-                )}%. Collection required immediately.`,
-                "danger"
-            );
-
-            alertCount++;
-        }
-
-        // NEAR FULL BIN
-        else if (fill >= 70) {
-            addAlert(
-                container,
-                "⚠️",
-                `${bin.dustbin_id} is nearly full`,
-                `Fill level is ${fill.toFixed(
-                    1
-                )}%. Collection recommended.`,
-                "warning"
-            );
-
-            alertCount++;
-        }
-
-        // ODOR DANGER
-        if (odor === "DANGER") {
-            addAlert(
-                container,
-                "☠️",
-                `${bin.dustbin_id} odor danger`,
-                "High gas concentration detected.",
-                "danger"
-            );
-
-            alertCount++;
-        }
-
-        // ODOR WARNING
-        else if (odor === "WARNING") {
-            addAlert(
-                container,
-                "⚠️",
-                `${bin.dustbin_id} odor warning`,
-                "Elevated gas concentration detected.",
-                "warning"
-            );
-
-            alertCount++;
-        }
-    });
-
-    // NO ALERTS
-    if (alertCount === 0) {
-        container.innerHTML = `
-            <div class="alert success">
-                <span class="alert-icon">✓</span>
-
-                <div>
-                    <strong>All systems normal</strong>
-                    <p>No critical waste alerts detected.</p>
-                </div>
-            </div>
-        `;
+        return;
     }
-}
 
+    const fillLevel = Number(bin.fill_level || 0);
 
-// ============================================
-// CREATE ALERT
-// ============================================
+    const gasValue = Number(
+        bin.gas_value || bin.gas || bin.mq_value || 0
+    );
 
-function addAlert(
-    container,
-    icon,
-    title,
-    message,
-    type
-) {
-    const alert = document.createElement("div");
+    const alerts = [];
 
-    alert.className = `alert ${type}`;
+    if (fillLevel >= 90) {
+        alerts.push(
+            "🚨 Dustbin is full. Collection required."
+        );
+    } else if (fillLevel >= 70) {
+        alerts.push(
+            "⚠️ Dustbin is nearly full."
+        );
+    }
 
-    alert.innerHTML = `
-        <span class="alert-icon">${icon}</span>
+    if (gasValue >= 2500) {
+        alerts.push(
+            "🚨 High gas level detected."
+        );
+    } else if (gasValue >= 1500) {
+        alerts.push(
+            "⚠️ Gas level is increasing."
+        );
+    }
 
-        <div>
-            <strong>${title}</strong>
-            <p>${message}</p>
-        </div>
-    `;
+    if (alerts.length === 0) {
+        container.innerHTML =
+            "<p>✅ No active alerts.</p>";
 
-    container.appendChild(alert);
+        return;
+    }
+
+    alerts.forEach(alert => {
+        const paragraph = document.createElement("p");
+
+        paragraph.textContent = alert;
+
+        container.appendChild(paragraph);
+    });
 }
 
 
@@ -320,61 +396,35 @@ function addAlert(
 // ============================================
 
 function updateDustbinTable() {
-    const tableBody = document.querySelector(
-        "#dustbinTable tbody"
+    const tableBody = document.getElementById(
+        "dustbinTable"
     );
 
-    if (!tableBody) return;
+    if (!tableBody) {
+        return;
+    }
 
     tableBody.innerHTML = "";
 
     dustbins.forEach(bin => {
         const row = document.createElement("tr");
 
-        const fill = Number(bin.fill_level || 0);
+        const fillLevel = Number(
+            bin.fill_level || 0
+        );
 
-        const status = String(
-            bin.status || "NORMAL"
-        ).toUpperCase();
+        const status = getFillStatus(fillLevel);
 
         row.innerHTML = `
+            <td>${escapeHTML(bin.dustbin_id)}</td>
+            <td>${escapeHTML(bin.location || "Unknown")}</td>
+            <td>${fillLevel.toFixed(1)}%</td>
             <td>
-                <strong>${bin.dustbin_id}</strong>
-            </td>
-
-            <td>
-                ${bin.location || "Unknown"}
-            </td>
-
-            <td>
-                ${fill.toFixed(1)}%
-            </td>
-
-            <td>
-                <span class="status-badge ${getStatusClass(
-                    status
-                )}">
-                    ${status}
+                <span class="status-badge ${status.className}">
+                    ${status.label}
                 </span>
             </td>
-
-            <td>
-                ${formatNumber(bin.temperature)} °C
-            </td>
-
-            <td>
-                ${formatNumber(bin.humidity)} %
-            </td>
-
-            <td>
-                ${Math.round(
-                    Number(bin.gas_raw || 0)
-                )}
-            </td>
-
-            <td>
-                ${bin.odor_status || "NORMAL"}
-            </td>
+            <td>${escapeHTML(bin.timestamp || "N/A")}</td>
         `;
 
         tableBody.appendChild(row);
@@ -383,26 +433,28 @@ function updateDustbinTable() {
 
 
 // ============================================
-// STATUS CLASS
+// FILL STATUS
 // ============================================
 
-function getStatusClass(status) {
-    switch (status) {
-        case "FULL":
-            return "status-full";
-
-        case "NEAR_FULL":
-            return "status-near-full";
-
-        case "MEDIUM":
-            return "status-medium";
-
-        case "NORMAL":
-            return "status-normal";
-
-        default:
-            return "status-normal";
+function getFillStatus(fillLevel) {
+    if (fillLevel >= 90) {
+        return {
+            label: "FULL",
+            className: "status-full"
+        };
     }
+
+    if (fillLevel >= 30) {
+        return {
+            label: "MEDIUM",
+            className: "status-medium"
+        };
+    }
+
+    return {
+        label: "EMPTY",
+        className: "status-empty"
+    };
 }
 
 
@@ -410,76 +462,75 @@ function getStatusClass(status) {
 // FILL LEVEL CHART
 // ============================================
 
-function updateChart() {
-    const canvas = document.getElementById(
-        "fillChart"
-    );
+async function updateChart() {
+    const canvas = document.getElementById("fillChart");
 
-    if (!canvas) return;
-
-    const labels = dustbins.map(
-        bin => bin.dustbin_id
-    );
-
-    const values = dustbins.map(
-        bin => Number(bin.fill_level || 0)
-    );
-
-    if (typeof Chart === "undefined") {
-        console.warn("Chart.js not loaded");
+    if (!canvas || !selectedBinId) {
         return;
     }
 
-    // Update existing chart
-    if (fillChart) {
-        fillChart.data.labels = labels;
+    try {
+        const response = await fetch(
+            `/api/readings/${encodeURIComponent(selectedBinId)}`
+        );
 
-        fillChart.data.datasets[0].data = values;
+        if (!response.ok) {
+            throw new Error("Failed to load chart data");
+        }
 
-        fillChart.update();
+        const result = await response.json();
 
-        return;
-    }
+        const readings = Array.isArray(result)
+            ? result
+            : result.readings || result.data || [];
 
-    // Create new chart
-    fillChart = new Chart(canvas, {
-        type: "bar",
+        const labels = readings.map(reading =>
+            formatTimestamp(
+                reading.timestamp
+            )
+        );
 
-        data: {
-            labels: labels,
+        const values = readings.map(reading =>
+            Number(reading.fill_level || 0)
+        );
 
-            datasets: [
-                {
-                    label: "Fill Level (%)",
-                    data: values,
-                    borderWidth: 1
-                }
-            ]
-        },
+        if (fillChart) {
+            fillChart.destroy();
+        }
 
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
+        fillChart = new Chart(canvas, {
+            type: "line",
 
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
+            data: {
+                labels: labels,
 
-                    title: {
-                        display: true,
-                        text: "Fill Level (%)"
+                datasets: [
+                    {
+                        label: "Fill Level (%)",
+                        data: values,
+
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: false
                     }
-                }
+                ]
             },
 
-            plugins: {
-                legend: {
-                    display: true
+            options: {
+                responsive: true,
+
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
                 }
             }
-        }
-    });
+        });
+
+    } catch (error) {
+        console.error("Chart error:", error);
+    }
 }
 
 
@@ -500,53 +551,51 @@ function formatNumber(value) {
     const number = Number(value);
 
     if (isNaN(number)) {
-        return "0.0";
+        return "0";
     }
 
     return number.toFixed(1);
 }
 
 
-// ============================================
-// SUMMARY FALLBACK
-// ============================================
+function formatTimestamp(timestamp) {
+    if (!timestamp) {
+        return "N/A";
+    }
 
-function updateSummary(
-    total,
-    full,
-    medium,
-    empty
-) {
-    updateElement("totalBins", total);
-    updateElement("fullBins", full);
-    updateElement("mediumBins", medium);
-    updateElement("emptyBins", empty);
+    try {
+        const date = new Date(timestamp);
+
+        if (isNaN(date.getTime())) {
+            return timestamp;
+        }
+
+        return date.toLocaleTimeString();
+    } catch (error) {
+        return timestamp;
+    }
 }
 
 
-// ============================================
-// SYSTEM ERROR
-// ============================================
+function escapeHTML(value) {
+    const div = document.createElement("div");
 
-function showSystemError() {
+    div.textContent = value;
+
+    return div.innerHTML;
+}
+
+
+function showSystemError(message) {
+    console.error(message);
+
     const container = document.getElementById(
         "alertsContainer"
     );
 
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="alert danger">
-            <span class="alert-icon">❌</span>
-
-            <div>
-                <strong>System connection error</strong>
-
-                <p>
-                    Unable to retrieve latest dustbin data.
-                    Please check the Flask server.
-                </p>
-            </div>
-        </div>
-    `;
+    if (container) {
+        container.innerHTML = `
+            <p>⚠️ ${escapeHTML(message)}</p>
+        `;
+    }
 }
