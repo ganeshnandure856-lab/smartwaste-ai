@@ -658,3 +658,47 @@ def get_bin_analytics(dustbin_id):
             if estimated_hours is not None
             else None
     }
+def get_recent_readings(dustbin_id, limit=10):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+        SELECT fill_level, timestamp
+        FROM dustbin_readings
+        WHERE dustbin_id = %s
+        ORDER BY timestamp DESC, id DESC
+        LIMIT %s
+    """
+
+    cursor.execute(query, (dustbin_id, limit))
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows
+
+# ============================================
+# GET RECENT READINGS
+# ============================================
+
+def get_recent_readings(dustbin_id, limit=10):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+        SELECT fill_level, timestamp
+        FROM dustbin_readings
+        WHERE dustbin_id = %s
+        ORDER BY timestamp DESC, id DESC
+        LIMIT %s
+    """
+
+    cursor.execute(query, (dustbin_id, limit))
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows
