@@ -9,7 +9,6 @@
 
     <link rel="stylesheet" href="/style.css">
 
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -17,7 +16,6 @@
 
     <!-- HEADER -->
     <header class="header">
-
         <div>
             <h1>♻️ Smart Waste Management</h1>
             <p>AI-Powered IoT Waste Monitoring System</p>
@@ -27,17 +25,11 @@
             <span class="live-dot"></span>
             System Live
         </div>
-
     </header>
-
 
     <main class="container">
 
-
-        <!-- ================================= -->
         <!-- SUMMARY CARDS -->
-        <!-- ================================= -->
-
         <section class="summary-grid">
 
             <div class="summary-card">
@@ -62,12 +54,7 @@
 
         </section>
 
-
-
-        <!-- ================================= -->
         <!-- DUSTBIN SELECTION -->
-        <!-- ================================= -->
-
         <section class="panel">
 
             <h2>🗑️ Dustbin Selection</h2>
@@ -79,152 +66,149 @@
             </label>
 
             <select id="dustbinSelector">
-                <option value="">
-                    Loading dustbins...
-                </option>
+                <option value="">Loading dustbins...</option>
             </select>
 
         </section>
 
-
-
-        <!-- ================================= -->
         <!-- SENSOR CARDS -->
-        <!-- ================================= -->
-
         <section class="sensor-grid">
 
-
-            <!-- TEMPERATURE -->
-
             <div class="sensor-card">
-
                 <h3>🌡️ Temperature</h3>
-
-                <h2 id="temperatureValue">
-                    -- °C
-                </h2>
-
+                <h2 id="temperatureValue">-- °C</h2>
             </div>
 
-
-
-            <!-- HUMIDITY -->
-
             <div class="sensor-card">
-
                 <h3>💧 Humidity</h3>
-
-                <h2 id="humidityValue">
-                    -- %
-                </h2>
-
+                <h2 id="humidityValue">-- %</h2>
             </div>
 
-
-
-            <!-- GAS -->
-
             <div class="sensor-card">
-
                 <h3>🧪 Gas Level</h3>
-
-                <h2 id="gasValue">
-                    --
-                </h2>
-
+                <h2 id="gasValue">--</h2>
             </div>
 
-
-
-            <!-- ODOR -->
-
             <div class="sensor-card">
-
                 <h3>👃 Odor Status</h3>
-
-                <h2 id="odorValue">
-                    --
-                </h2>
-
+                <h2 id="odorValue">--</h2>
             </div>
-
-
-
-            <!-- FILL LEVEL -->
 
             <div class="sensor-card">
-
                 <h3>🗑️ Fill Level</h3>
-
-                <h2 id="fillValue">
-                    -- %
-                </h2>
-
+                <h2 id="fillValue">-- %</h2>
             </div>
 
-
-
-            <!-- AI OVERFLOW RISK -->
-
+            <!-- AI PREDICTION CARD -->
             <div class="sensor-card ai-card">
 
                 <h3>🤖 AI Overflow Risk</h3>
 
-                <p id="aiRiskStatus">
-                    Checking...
+                <p id="aiRiskStatus">Checking...</p>
+
+                <h2 id="aiRiskPercentage">--%</h2>
+
+                <small>Machine Learning Prediction</small>
+
+                <p>
+                    <strong>Prediction Type:</strong>
+                    Live AI Analysis
                 </p>
 
-                <h2 id="aiRiskPercentage">
-                    --%
-                </h2>
+                <p>
+                    <strong>Model Status:</strong>
+                    <span id="aiModelStatus">Active</span>
+                </p>
 
-                <small>
-                    Machine Learning Prediction
-                </small>
+                <p>
+                    <strong>Last Updated:</strong>
+                    <span id="aiLastUpdated">Waiting...</span>
+                </p>
 
             </div>
 
+        </section>
+
+        <!-- AI FORECAST CARD -->
+        <section class="panel">
+
+            <h2>🔮 AI Waste Forecast</h2>
+
+            <p>
+                Forecast based on recent sensor readings.
+            </p>
+
+            <p>
+                <strong>Current Fill:</strong>
+                <span id="forecastCurrentFill">--</span>%
+            </p>
+
+            <p>
+                <strong>Predicted Fill After 2 Hours:</strong>
+                <span id="forecastFutureFill">--</span>%
+            </p>
+
+            <p>
+                <strong>Fill Rate:</strong>
+                <span id="forecastFillRate">--</span>%/hour
+            </p>
+
+            <p>
+                <strong>Estimated Time to 80%:</strong>
+                <span id="forecastTimeToOverflow">--</span>
+            </p>
+
+            <p>
+                <strong>Forecast Status:</strong>
+                <span id="forecastMessage">
+                    Waiting for forecast data...
+                </span>
+            </p>
 
         </section>
 
+        <!-- AI INFORMATION -->
+        <section class="panel">
 
+            <h2>🧠 AI Prediction Information</h2>
 
-        <!-- ================================= -->
+            <p>
+                The machine learning model analyzes sensor readings
+                and historical fill-level changes to estimate
+                potential overflow risk.
+            </p>
+
+            <p>
+                <strong>Risk Interpretation:</strong>
+            </p>
+
+            <ul>
+                <li>Low percentage: Lower predicted risk</li>
+                <li>High percentage: Higher predicted risk</li>
+                <li>Prediction is an estimate, not a guarantee</li>
+            </ul>
+
+        </section>
+
         <!-- ALERTS -->
-        <!-- ================================= -->
-
         <section class="panel">
 
             <h2>🚨 Alerts</h2>
 
-            <p>
-                Important dustbin notifications
-            </p>
+            <p>Important dustbin notifications</p>
 
             <div id="alertsContainer">
-
-                <p>
-                    No alerts available.
-                </p>
-
+                <p>No alerts available.</p>
             </div>
 
         </section>
 
-
-
-        <!-- ================================= -->
         <!-- DUSTBIN MONITORING TABLE -->
-        <!-- ================================= -->
-
         <section class="panel">
 
             <h2>🗑️ Dustbin Monitoring</h2>
 
-            <p>
-                Real-time sensor readings
-            </p>
+            <p>Real-time sensor readings</p>
 
             <p>
                 <strong>Updates every 5 seconds</strong>
@@ -235,32 +219,21 @@
                 <table>
 
                     <thead>
-
                         <tr>
-
                             <th>Dustbin ID</th>
-
                             <th>Location</th>
-
                             <th>Fill Level</th>
-
                             <th>Status</th>
-
                             <th>Last Updated</th>
-
                         </tr>
-
                     </thead>
-
 
                     <tbody id="dustbinTable">
 
                         <tr>
-
                             <td colspan="5">
                                 Loading data...
                             </td>
-
                         </tr>
 
                     </tbody>
@@ -271,39 +244,23 @@
 
         </section>
 
-
-
-        <!-- ================================= -->
         <!-- FILL LEVEL CHART -->
-        <!-- ================================= -->
-
         <section class="panel chart-panel">
 
             <h2>📊 Fill Level History</h2>
 
-            <p>
-                Historical waste level
-            </p>
+            <p>Historical waste level</p>
 
             <div class="chart-container">
-
                 <canvas id="fillChart"></canvas>
-
             </div>
 
         </section>
 
-
-
-        <!-- ================================= -->
         <!-- SYSTEM STATUS -->
-        <!-- ================================= -->
-
         <section class="panel system-status">
 
-            <h3>
-                🟢 System Status: Online
-            </h3>
+            <h3>🟢 System Status: Online</h3>
 
             <p>
                 ESP32 → Wi-Fi → Flask → PostgreSQL → Dashboard
@@ -311,13 +268,9 @@
 
         </section>
 
-
     </main>
 
-
-
     <!-- FOOTER -->
-
     <footer>
 
         <p>
@@ -326,10 +279,7 @@
 
     </footer>
 
-
-
     <!-- JAVASCRIPT -->
-
     <script src="/script.js"></script>
 
 </body>

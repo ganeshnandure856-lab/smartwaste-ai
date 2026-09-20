@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadDustbins();
 
-    // Refresh dashboard every 5 seconds
     setInterval(loadDustbins, 5000);
 
 });
@@ -49,14 +48,9 @@ async function loadDustbins() {
 
     } catch (error) {
 
-        console.error(
-            "Loading dustbins error:",
-            error
-        );
+        console.error("Loading dustbins error:", error);
 
-        showSystemError(
-            "Unable to load dustbin data"
-        );
+        showSystemError("Unable to load dustbin data");
 
     }
 
@@ -77,14 +71,12 @@ function updateDashboard() {
 
     }
 
-    // Select first bin by default
     if (!selectedBinId) {
 
         selectedBinId = dustbins[0].dustbin_id;
 
     }
 
-    // Check selected bin still exists
     const selectedExists = dustbins.some(
         bin => bin.dustbin_id === selectedBinId
     );
@@ -102,6 +94,9 @@ function updateDashboard() {
     updateSensorCards();
 
     updateAIRisk();
+
+    // AI FORECAST
+    loadForecast(selectedBinId);
 
     updateAlerts();
 
@@ -126,9 +121,7 @@ function updateSummaryCards() {
 
     dustbins.forEach(bin => {
 
-        const fillLevel = Number(
-            bin.fill_level || 0
-        );
+        const fillLevel = Number(bin.fill_level || 0);
 
         if (fillLevel >= 90) {
 
@@ -156,32 +149,15 @@ function updateSummaryCards() {
 }
 
 
-function updateSummary(
-    total,
-    full,
-    medium,
-    empty
-) {
+function updateSummary(total, full, medium, empty) {
 
-    updateElement(
-        "totalBins",
-        total
-    );
+    updateElement("totalBins", total);
 
-    updateElement(
-        "fullBins",
-        full
-    );
+    updateElement("fullBins", full);
 
-    updateElement(
-        "mediumBins",
-        medium
-    );
+    updateElement("mediumBins", medium);
 
-    updateElement(
-        "emptyBins",
-        empty
-    );
+    updateElement("emptyBins", empty);
 
 }
 
@@ -196,19 +172,13 @@ function updateDustbinSelector() {
         "dustbinSelector"
     );
 
-    if (!selector) {
-
-        return;
-
-    }
+    if (!selector) return;
 
     selector.innerHTML = "";
 
     dustbins.forEach(bin => {
 
-        const option = document.createElement(
-            "option"
-        );
+        const option = document.createElement("option");
 
         option.value = bin.dustbin_id;
 
@@ -217,9 +187,7 @@ function updateDustbinSelector() {
                 bin.location || "Unknown Location"
             }`;
 
-        if (
-            bin.dustbin_id === selectedBinId
-        ) {
+        if (bin.dustbin_id === selectedBinId) {
 
             option.selected = true;
 
@@ -250,23 +218,13 @@ function updateSensorCards() {
         item => item.dustbin_id === selectedBinId
     );
 
-    if (!bin) {
+    if (!bin) return;
 
-        return;
+    const fillLevel = Number(bin.fill_level || 0);
 
-    }
+    const temperature = Number(bin.temperature || 0);
 
-    const fillLevel = Number(
-        bin.fill_level || 0
-    );
-
-    const temperature = Number(
-        bin.temperature || 0
-    );
-
-    const humidity = Number(
-        bin.humidity || 0
-    );
+    const humidity = Number(bin.humidity || 0);
 
     const gasValue = Number(
         bin.gas_value ||
@@ -274,10 +232,6 @@ function updateSensorCards() {
         bin.mq_value ||
         bin.gas_raw ||
         0
-    );
-
-    const distance = Number(
-        bin.distance || 0
     );
 
     updateElement(
@@ -305,10 +259,7 @@ function updateSensorCards() {
         getOdorStatus(gasValue)
     );
 
-    console.log(
-        "Selected bin:",
-        bin
-    );
+    console.log("Selected bin:", bin);
 
 }
 
@@ -346,15 +297,10 @@ async function updateAIRisk() {
         item => item.dustbin_id === selectedBinId
     );
 
-    if (!bin) {
-
-        return;
-
-    }
+    if (!bin) return;
 
     try {
 
-        // Show loading status
         updateElement(
             "aiModelStatus",
             "Analyzing..."
@@ -376,16 +322,12 @@ async function updateAIRisk() {
 
         const result = await response.json();
 
-        console.log(
-            "Live AI Prediction:",
-            result
-        );
+        console.log("Live AI Prediction:", result);
 
         if (!result.success) {
 
             throw new Error(
-                result.error ||
-                "Prediction failed"
+                result.error || "Prediction failed"
             );
 
         }
@@ -399,19 +341,16 @@ async function updateAIRisk() {
                 ? "🚨 Overflow Risk Detected"
                 : "✅ Low Overflow Risk";
 
-        // Update AI risk percentage
         updateElement(
             "aiRiskPercentage",
             percentage.toFixed(1) + "%"
         );
 
-        // Update AI risk status
         updateElement(
             "aiRiskStatus",
             riskStatus
         );
 
-        // Update AI model information
         updateElement(
             "aiModelStatus",
             "Active"
@@ -461,6 +400,135 @@ async function updateAIRisk() {
 
 
 // ============================================
+// AI WASTE FORECAST
+// ============================================
+
+async function loadForecast(dustbinId) {
+
+    if (!dustbinId) return;
+
+    try {
+
+        const response = await fetch(
+            `/api/forecast/${encodeURIComponent(dustbinId)}`
+        );
+
+        if (!response.ok) {
+
+            throw new Error("Forecast API failed");
+
+        }
+
+        const data = await response.json();
+
+        console.log("AI Forecast:", data);
+
+        if (!data.success) {
+
+            throw new Error(
+                data.error || "Forecast unavailable"
+            );
+
+        }
+
+        updateElement(
+            "forecastCurrentFill",
+            Number(data.current_fill).toFixed(2)
+        );
+
+        updateElement(
+            "forecastFutureFill",
+            Number(
+                data.predicted_fill_after_2_hours
+            ).toFixed(2)
+        );
+
+        updateElement(
+            "forecastFillRate",
+            Number(data.fill_rate_per_hour).toFixed(2)
+        );
+
+        const overflowTime =
+            data.estimated_time_to_80_percent;
+
+        if (overflowTime === null) {
+
+            updateElement(
+                "forecastTimeToOverflow",
+                "Not currently estimated"
+            );
+
+        } else {
+
+            updateElement(
+                "forecastTimeToOverflow",
+                overflowTime + " hours"
+            );
+
+        }
+
+        let message = "";
+
+        if (data.current_fill >= 80) {
+
+            message =
+                "🚨 Fill level is already above 80%. Collection recommended.";
+
+        } else if (data.fill_rate_per_hour <= 0) {
+
+            message =
+                "ℹ️ No increasing fill trend detected.";
+
+        } else {
+
+            message =
+                "✅ Forecast updated successfully.";
+
+        }
+
+        updateElement(
+            "forecastMessage",
+            message
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Forecast error:",
+            error
+        );
+
+        updateElement(
+            "forecastCurrentFill",
+            "--"
+        );
+
+        updateElement(
+            "forecastFutureFill",
+            "--"
+        );
+
+        updateElement(
+            "forecastFillRate",
+            "--"
+        );
+
+        updateElement(
+            "forecastTimeToOverflow",
+            "--"
+        );
+
+        updateElement(
+            "forecastMessage",
+            "⚠️ Forecast unavailable"
+        );
+
+    }
+
+}
+
+
+// ============================================
 // ALERTS
 // ============================================
 
@@ -470,11 +538,7 @@ function updateAlerts() {
         "alertsContainer"
     );
 
-    if (!container) {
-
-        return;
-
-    }
+    if (!container) return;
 
     container.innerHTML = "";
 
@@ -491,9 +555,7 @@ function updateAlerts() {
 
     }
 
-    const fillLevel = Number(
-        bin.fill_level || 0
-    );
+    const fillLevel = Number(bin.fill_level || 0);
 
     const gasValue = Number(
         bin.gas_value ||
@@ -544,9 +606,7 @@ function updateAlerts() {
 
     alerts.forEach(alert => {
 
-        const paragraph = document.createElement(
-            "p"
-        );
+        const paragraph = document.createElement("p");
 
         paragraph.textContent = alert;
 
@@ -567,27 +627,17 @@ function updateDustbinTable() {
         "dustbinTable"
     );
 
-    if (!tableBody) {
-
-        return;
-
-    }
+    if (!tableBody) return;
 
     tableBody.innerHTML = "";
 
     dustbins.forEach(bin => {
 
-        const row = document.createElement(
-            "tr"
-        );
+        const row = document.createElement("tr");
 
-        const fillLevel = Number(
-            bin.fill_level || 0
-        );
+        const fillLevel = Number(bin.fill_level || 0);
 
-        const status = getFillStatus(
-            fillLevel
-        );
+        const status = getFillStatus(fillLevel);
 
         row.innerHTML = `
 
@@ -606,7 +656,6 @@ function updateDustbinTable() {
             </td>
 
             <td>
-
                 <span class="status-badge ${
                     status.className
                 }">
@@ -614,7 +663,6 @@ function updateDustbinTable() {
                     ${status.label}
 
                 </span>
-
             </td>
 
             <td>
@@ -641,11 +689,8 @@ function getFillStatus(fillLevel) {
     if (fillLevel >= 90) {
 
         return {
-
             label: "FULL",
-
             className: "status-full"
-
         };
 
     }
@@ -653,21 +698,15 @@ function getFillStatus(fillLevel) {
     if (fillLevel >= 30) {
 
         return {
-
             label: "MEDIUM",
-
             className: "status-medium"
-
         };
 
     }
 
     return {
-
         label: "EMPTY",
-
         className: "status-empty"
-
     };
 
 }
@@ -683,11 +722,7 @@ async function updateChart() {
         "fillChart"
     );
 
-    if (!canvas || !selectedBinId) {
-
-        return;
-
-    }
+    if (!canvas || !selectedBinId) return;
 
     try {
 
@@ -715,16 +750,12 @@ async function updateChart() {
 
         const labels = readings.map(
             reading =>
-                formatTimestamp(
-                    reading.timestamp
-                )
+                formatTimestamp(reading.timestamp)
         );
 
         const values = readings.map(
             reading =>
-                Number(
-                    reading.fill_level || 0
-                )
+                Number(reading.fill_level || 0)
         );
 
         if (fillChart) {
@@ -736,19 +767,14 @@ async function updateChart() {
         fillChart = new Chart(
             canvas,
             {
-
                 type: "line",
 
                 data: {
-
                     labels: labels,
 
                     datasets: [
-
                         {
-
-                            label:
-                                "Fill Level (%)",
+                            label: "Fill Level (%)",
 
                             data: values,
 
@@ -757,31 +783,20 @@ async function updateChart() {
                             tension: 0.3,
 
                             fill: false
-
                         }
-
                     ]
-
                 },
 
                 options: {
-
                     responsive: true,
 
                     scales: {
-
                         y: {
-
                             beginAtZero: true,
-
                             max: 100
-
                         }
-
                     }
-
                 }
-
             }
         );
 
@@ -801,14 +816,9 @@ async function updateChart() {
 // HELPER FUNCTIONS
 // ============================================
 
-function updateElement(
-    id,
-    value
-) {
+function updateElement(id, value) {
 
-    const element = document.getElementById(
-        id
-    );
+    const element = document.getElementById(id);
 
     if (element) {
 
@@ -844,9 +854,7 @@ function formatTimestamp(timestamp) {
 
     try {
 
-        const date = new Date(
-            timestamp
-        );
+        const date = new Date(timestamp);
 
         if (isNaN(date.getTime())) {
 
@@ -867,9 +875,7 @@ function formatTimestamp(timestamp) {
 
 function escapeHTML(value) {
 
-    const div = document.createElement(
-        "div"
-    );
+    const div = document.createElement("div");
 
     div.textContent = value;
 
@@ -889,11 +895,9 @@ function showSystemError(message) {
     if (container) {
 
         container.innerHTML = `
-
             <p>
                 ⚠️ ${escapeHTML(message)}
             </p>
-
         `;
 
     }
