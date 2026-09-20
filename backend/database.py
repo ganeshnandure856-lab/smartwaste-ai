@@ -201,6 +201,36 @@ def get_all_dustbins():
 
     return result
 
+# ============================================
+# GET LATEST TWO READINGS
+# ============================================
+
+def get_latest_two_readings(dustbin_id):
+
+    conn = get_connection()
+
+    cursor = conn.cursor()
+
+    query = """
+        SELECT
+            distance,
+            fill_level,
+            timestamp
+        FROM dustbin_readings
+        WHERE dustbin_id = %s
+        ORDER BY timestamp DESC, id DESC
+        LIMIT 2
+    """
+
+    cursor.execute(query, (dustbin_id,))
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows
+
 
 # ============================================
 # ADD DUSTBIN

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import (
     Flask,
     jsonify,
@@ -13,7 +15,8 @@ from backend.database import (
     add_dustbin,
     add_reading,
     get_reading_history,
-    get_bin_analytics
+    get_bin_analytics,
+    get_latest_two_readings
 )
 
 import os
@@ -404,6 +407,179 @@ def predict_overflow():
 
         }), 500
 
+# ============================================
+# LIVE AI PREDICTION
+# ============================================
+
+@app.route(
+    "/api/predict/<dustbin_id>",
+    methods=["GET"]
+)
+def live_predict(dustbin_id):
+
+    try:
+
+        if model is None:
+
+            return jsonify({
+                "success": False,
+                "error": "ML model is not loaded"
+            }), 500
+
+        readings = get_latest_two_readings(
+            dustbin_id
+        )
+
+        if not readings:
+
+            return jsonify({
+                "success": False,
+                "error": "No sensor readings found"
+            }), 404
+
+        # Latest reading
+        latest = readings[0]
+
+        distance = float(
+            latest[0] or 0
+        )
+
+        fill_level = float(
+            latest[1] or 0
+        )
+
+        latest_time = latest[2]
+
+        # Default values
+        previous_fill = fill_level
+        previous_distance = distance
+        fill_change = 0
+        distance_change = 0
+        time_difference = 0
+        fill_rate = 0
+
+        # Previous reading available
+        if len(readings) >= 2:
+
+            previous = readings[1]
+
+            previous_distance = float(
+                previous[0] or 0
+            )
+
+            previous_fill = float(
+                previous[1] or 0
+            )
+
+            previous_time = previous[2]
+
+            fill_change = (
+                fill_level - previous_fill
+            )
+
+            distance_change = (
+                distance - previous_distance
+            )
+
+            if latest_time and previous_time:
+
+                time_difference = (
+                    latest_time - previous_time
+                ).total_seconds() / 60
+
+                if time_difference > 0:
+
+                    fill_rate = (
+                        fill_change
+                        / (time_difference / 60)
+                    )
+
+        # Current time features
+        now = latest_time or datetime.now()
+
+        hour = now.hour
+        day_of_week = now.weekday()
+
+        input_data = {
+
+            "distance": distance,
+
+            "fill_level": fill_level,
+
+            "hour": hour,
+
+            "day_of_week": day_of_week,
+
+            "previous_fill_level": previous_fill,
+
+            "fill_change": fill_change,
+
+            "time_difference_minutes":
+                time_difference,
+
+            "fill_rate": fill_rate,
+
+            "fill_rate_rolling_mean": fill_rate,
+
+            "previous_distance":
+                previous_distance,
+
+            "distance_change":
+                distance_change
+        }
+
+        input_df = pd.DataFrame([
+            input_data
+        ])
+
+        input_df = input_df[
+            feature_columns
+        ]
+
+        input_df = input_df.fillna(0)
+
+        prediction = int(
+            model.predict(input_df)[0]
+        )
+
+        probability = float(
+            model.predict_proba(input_df)[0][1]
+        )
+
+        return jsonify({
+
+            "success": True,
+
+            "dustbin_id": dustbin_id,
+
+            "fill_level": round(
+                fill_level,
+                2
+            ),
+
+            "prediction": prediction,
+
+            "overflow_risk":
+                "YES" if prediction == 1
+                else "NO",
+
+            "risk_probability":
+                round(probability, 4),
+
+            "risk_percentage":
+                round(probability * 100, 2)
+
+        })
+
+    except Exception as e:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        }), 500
 
 # ============================================
 # GET READING HISTORY
